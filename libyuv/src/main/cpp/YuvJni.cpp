@@ -176,6 +176,28 @@ Jni_RgbaToI420WithStride(JNIEnv *env, jclass clazz, jint type, jbyteArray rgba, 
 }
 
 int
+Jni_RgbaBufferToI420BufferWithStride(JNIEnv *env, jclass clazz, jint type, jobject rgba,
+                                     jint rgba_stride,
+                                     jobject yuv, jint y_stride, jint u_stride, jint v_stride,
+                                     jint width, jint height) {
+    const uint8 *rgba_buf = (uint8 *) env->GetDirectBufferAddress(rgba);
+    uint8 *yuv_buf = (uint8 *) env->GetDirectBufferAddress(yuv);
+
+    uint8 cType = (uint8) (type & 0x0F);
+    size_t ySize = (size_t) (y_stride * height);
+    size_t uSize = (size_t) (u_stride * height >> 1);
+
+    int ret = rgbaToI420Func[cType](rgba_buf, rgba_stride, yuv_buf,
+                                    y_stride,
+                                    yuv_buf + ySize, u_stride,
+                                    yuv_buf + ySize + uSize,
+                                    v_stride, width, height);
+//    env->ReleaseByteArrayElements(rgba, rgbaData, JNI_OK);
+//    env->ReleaseByteArrayElements(yuv, yuvData, JNI_OK);
+    return ret;
+}
+
+int
 Jni_RgbaToI420(JNIEnv *env, jclass clazz, jint type, jbyteArray rgba, jbyteArray yuv, jint width,
                jint height) {
     uint8 cType = (uint8) (type & 0x0F);
@@ -211,18 +233,19 @@ Jni_I420ToRgba(JNIEnv *env, jclass clazz, jint type, jbyteArray yuv, jbyteArray 
 
 //libyuv中，rgba表示abgrabgrabgr这样的顺序写入文件，java使用的时候习惯rgba表示rgbargbargba写入文件
 static JNINativeMethod g_methods[] = {
-        {"RgbaToI420",       "(I[BI[BIIIII)I", (void *) Jni_RgbaToI420WithStride},
-        {"RgbaToI420",       "(I[B[BII)I",     (void *) Jni_RgbaToI420},
+        {"RgbaToI420",       "(ILjava/nio/ByteBuffer;ILjava/nio/ByteBuffer;IIIII)I", (void *) Jni_RgbaBufferToI420BufferWithStride},
+        {"RgbaToI420",       "(I[BI[BIIIII)I",                                       (void *) Jni_RgbaToI420WithStride},
+        {"RgbaToI420",       "(I[B[BII)I",                                           (void *) Jni_RgbaToI420},
 
-        {"I420ToRgba",       "(I[BIII[BIII)I", (void *) Jni_I420ToRgbaWithStride},
-        {"I420ToRgba",       "(I[B[BII)I",     (void *) Jni_I420ToRgba},
+        {"I420ToRgba",       "(I[BIII[BIII)I",                                       (void *) Jni_I420ToRgbaWithStride},
+        {"I420ToRgba",       "(I[B[BII)I",                                           (void *) Jni_I420ToRgba},
 
-        {"I420ToNV21",       "([B[BIIZ)V",     (void *) Jni_I420ToNV21},
-        {"NV21ToI420",       "([B[BIIZ)V",     (void *) Jni_NV21ToI420},
-        {"NV21Scale",        "([BII[BIII)V",   (void *) Jni_NV21Scale},
-        {"I420Scale",        "([BII[BIIIZ)V",  (void *) Jni_I420Scale},
-        {"RgbaScale",        "([BII[BIII)V",   (void *) Jni_RgbaScale},
-        {"NV21ToI420Rotate", "([BII[BIZ)V",    (void *) Jni_NV21ToI420Rotate},
+        {"I420ToNV21",       "([B[BIIZ)V",                                           (void *) Jni_I420ToNV21},
+        {"NV21ToI420",       "([B[BIIZ)V",                                           (void *) Jni_NV21ToI420},
+        {"NV21Scale",        "([BII[BIII)V",                                         (void *) Jni_NV21Scale},
+        {"I420Scale",        "([BII[BIIIZ)V",                                        (void *) Jni_I420Scale},
+        {"RgbaScale",        "([BII[BIII)V",                                         (void *) Jni_RgbaScale},
+        {"NV21ToI420Rotate", "([BII[BIZ)V",                                          (void *) Jni_NV21ToI420Rotate},
 };
 
 JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
